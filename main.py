@@ -6,11 +6,12 @@ import numpy as np
 import torchvision
 import datetime
 import csv
+import torch.nn as nn
 
 import argparse
 import random
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score,average_precision_score,precision_recall_fscore_support
-from torchvision import transforms
+from torchvision import transforms,models
 from models import resnet26
 from data import CustomDataset
 from sklearn.ensemble import IsolationForest
@@ -19,6 +20,20 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score,average_precision_score,precision_recall_fscore_support
 from utils.evaluations import save_results,do_roc,do_prc,do_prg,get_percentile
 from torch.utils.data import DataLoader
+
+class FeatureExtractor(nn.Module):
+    def __init__(self, submodule, extracted_layers):
+        super(FeatureExtractor, self).__init__()
+        self.submodule = submodule
+        self.extracted_layers = extracted_layers
+
+    def forward(self, x):
+        outputs = []
+        for name, module in self.submodule._modules.items():
+            if name is "fc": x = x.view(x.size(0), -1)
+            x = module(x)  # last layer output put into current layer input
+            if name == self.extracted_layers:
+                return x
 class Transfer_Forest():
     def __init__(self,seed):
         self.seed = seed
@@ -92,14 +107,20 @@ class Transfer_Forest():
                 module1 = self.recursion_change_bn(module1)
 
     def extract_feature(self):
-        model = resnet26()
-        file_path = "resnet26_pretrained.t7"
-        checkpoint = torch.load(file_path)
-        model = checkpoint['net']
-        for name, module in model._modules.items():
-            self.recursion_change_bn(model)
-        # model = torch.nn.Sequential(*(list(model.children())[:-1]))
+        model = models.resnet50(pretrained=True)
         model.eval()
+        print(model)
+        # model.cuda()
+        # model = FeatureExtractor(model,'avgpool')
+        # file_path = "resnet26_pretrained.t7"
+        # checkpoint = torch.load(file_path)
+        # model = checkpoint['net']
+        # for name, module in model._modules.items():
+            # self.recursion_change_bn(model)
+        # model = torch.nn.Sequential(*(list(model.children())[:-1]))
+
+        model = FeatureExtractor(model,'avgpool').cuda()
+        # model.eval()
         #load data
         data = {
         'train':CustomDataset(split="train"),
@@ -108,7 +129,7 @@ class Transfer_Forest():
         }
         dataloaders = {
         'train':DataLoader(data['train'],batch_size=20,shuffle=True),
-        'test':DataLoader(data['test'],batch_size=20,shuffle=True)
+        'test':DataLoader(data['test'],batch_size=20,shuffle=False)
         }
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -119,25 +140,30 @@ class Transfer_Forest():
                 for i, (inputs,labels) in enumerate(dataloaders[split]):
                     inputs = inputs.to(device)
                     labels = labels.to(device)
+                    # x_feature_batchs= model(inputs)
                     x_feature_batchs= model(inputs)
-                    # print("x_feature_batchs")
-                    # print(x_feature_batchs)
+
+                   
                     if i:
                         features = np.concatenate([features,x_feature_batchs],axis=0)
                     else:
                         features = x_feature_batchs
                 feature_list.append(features)
 
-        
+        np.save("feature1.npy",feature_list[0])
+        np.save("feature2.npy",feature_list[1])
         return feature_list[0],feature_list[1]
 
     def isolation_forest(self):
         x_train,x_test = self.extract_feature()
+       
+        x_train = x_train.squeeze()
+        x_test = x_test.squeeze()
         print("##################x_train###############")
         print(x_train.shape)
         print(x_test.shape)
-        x_train = x_train.squeeze()
-        x_test = x_test.squeeze()
+        print(x_train)
+        print(x_test)
         model2=IsolationForest(contamination='auto',behaviour='new')
         print("training...")
         model2.fit(x_train)
@@ -202,11 +228,6 @@ if __name__ == '__main__':
 
     model = Transfer_Forest(seed)
     model.evaluation()
-
-
-
-
-
 
 
     

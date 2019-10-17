@@ -17,7 +17,7 @@ normalize= transforms.Normalize(
     )
 preprocess = transforms.Compose([
     transforms.ToTensor(),
-    normalize
+    
     ])
 
 def get_dataset(split):
