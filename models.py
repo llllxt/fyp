@@ -117,8 +117,8 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.end_bns[task](x)
         x = self.avgpool(x)
-        # x = x.view(x.size(0), -1)
-        # x = self.linears[task](x)
+        x = x.view(x.size(0), -1)
+        x = self.linears[task](x)
         return x
 
     

@@ -31,9 +31,9 @@ def get_dataset(split):
     # print(img_path)
     # print(files_name)
     if split == "train":
-        files_name = random.sample(files_name,5000)
+        files_name = random.sample(files_name,50)
     else:
-        files_name = random.sample(files_name,10000)
+        files_name = random.sample(files_name,100)
     labels = pd.read_csv(os.path.join(root_dir,split+'Labels.csv'),delimiter=',')
 
     for name in files_name:
