@@ -35,69 +35,13 @@ class FeatureExtractor(nn.Module):
             if name == self.extracted_layers:
                 return x
 class Transfer_Forest():
-    def __init__(self,seed):
+    def __init__(self,seed,model_name):
         self.seed = seed
         
         self.dataset="dr_kaggle"
         self.anomaly_type = "novelty"
         self.a = 0
-
-
-    # def train_model(self,model,critetion,optimizer,scheduler,num_epochs=25):
-    #   since = time.time()
-    #   best_model_wts = copy.deepcopy(model.state_dict())
-
-
-    #   for epoch in range(num_epochs):
-    #       print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-    #         print('-' * 10)
-
-    #         for phase in ['train','val']:
-    #           if phase == 'train':
-    #               model.train()
-    #           else:
-    #               model.eval()
-
-    #           running_loss = 0.0
-    #             running_corrects = 0
-
-    #           for inputs, labels in dataloaders[phase]:
-    #               inputs = inputs.to(device)
-    #               labels = labels.to(device)
-
-    #               optimizer.zero_grad()
-
-    #               #forward
-    #               with torch.set_grad_enabled(phase=="train"):
-    #                   outputs = model(inputs)
-    #                   _,preds = torch.max(outputs,1)
-    #                   loss = critetion(outputs,labels)
-
-    #                   #backward + optimize only if in training phase
-    #                   if phase == 'train':
-    #                       loss.backward()
-    #                       optimizer.step()
-
-    #               # statistics
-    #                 running_loss += loss.item() * inputs.size(0)
-    #                 running_corrects += torch.sum(preds == labels.data)
-
-    #                 if phase == 'train':
-    #                   scheduler.step()
-
-    #               epoch_loss = running_loss / dataset_sizes[phase]
-    #               epoch_acc = running_corrects.double() / dataset_sizes[phase]
-
-    #               print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-    #                   phase, epoch_loss, epoch_acc))
-    #   time_elapsed = time.time() - since
-    #     print('Training complete in {:.0f}m {:.0f}s'.format(
-    #         time_elapsed // 60, time_elapsed % 60))
-    #     print('Best val Acc: {:4f}'.format(best_acc))
-
-    #     # load best model weights
-    #     model.load_state_dict(best_model_wts)
-    #     return model
+        self.model_name = model_name
 
     def recursion_change_bn(self,module):
         if isinstance(module, torch.nn.BatchNorm2d):
@@ -106,94 +50,46 @@ class Transfer_Forest():
             for name, module1 in module._modules.items():
                 module1 = self.recursion_change_bn(module1)
 
-    def extract_feature(self):
-        # model = resnet26()
-        # file_path = "resnet26_pretrained.t7"
-        # checkpoint = torch.load(file_path)
-        # model = checkpoint['net']
-        # for name, module in model._modules.items():
-        #     self.recursion_change_bn(model)
-        net = resnet26()
-        checkpoint = torch.load("resnet26_pretrained.t7")
-        net_old = checkpoint['net']
+    def extract_feature(self,model_name):
+        # model_dict = model.state_dict()
+        # pretrained_dict =checkpoint
+        # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        # model_dict.update(pretrained_dict)
+        # model.load_state_dict(pretrained_dict)
 
-        store_data = []
-        t = 0
-        for name, m in net_old.named_modules():
-            if isinstance(m, nn.Conv2d):
-                store_data.append(m.weight.data)
-                t += 1
+        
+        model = resnet26()       
+        checkpoint = torch.load(model_name)
+        model.load_state_dict(checkpoint)
+        #     print(param)
 
-        element = 0
-        for name, m in net.named_modules():
-            if isinstance(m, nn.Conv2d) and 'parallel_blocks' not in name:
-                m.weight.data = torch.nn.Parameter(store_data[element].clone())
-                element += 1
-
-        element = 1
-        for name, m in net.named_modules():
-            if isinstance(m, nn.Conv2d) and 'parallel_blocks' in name:
-                m.weight.data = torch.nn.Parameter(store_data[element].clone())
-                element += 1
-
-        store_data = []
-        store_data_bias = []
-        store_data_rm = []
-        store_data_rv = []
-        for name, m in net_old.named_modules():
-            if isinstance(m, nn.BatchNorm2d):
-                store_data.append(m.weight.data)
-                store_data_bias.append(m.bias.data)
-                store_data_rm.append(m.running_mean)
-                store_data_rv.append(m.running_var)
-
-        element = 0
-        for name, m in net.named_modules():
-            if isinstance(m, nn.BatchNorm2d) and 'parallel_block' not in name:
-                    m.weight.data = torch.nn.Parameter(store_data[element].clone())
-                    m.bias.data = torch.nn.Parameter(store_data_bias[element].clone())
-                    m.running_var = store_data_rv[element].clone()
-                    m.running_mean = store_data_rm[element].clone()
-                    element += 1
-
-        element = 1
-        for name, m in net.named_modules():
-            if isinstance(m, nn.BatchNorm2d) and 'parallel_block' in name:
-                    m.weight.data = torch.nn.Parameter(store_data[element].clone())
-                    m.bias.data = torch.nn.Parameter(store_data_bias[element].clone())
-                    m.running_var = store_data_rv[element].clone()
-                    m.running_mean = store_data_rm[element].clone()
-                    element += 1
-        model=net
-        print(model)
         model.cuda()
         model.eval()
-        dict1={}
-        for name,param in model.named_parameters():
-            dict1[name]=param
-        print("###############dict1$#############")
-        print(dict1)
+        #load data
+
         data = {
-        'train':CustomDataset(split="train",seed=42),
-        'test':CustomDataset(split="test",seed=42)
+        'train':CustomDataset(split="train",seed=42,step='isolation'),
+        'test':CustomDataset(split="test",seed=42,step='isolation')
 
         }
         dataloaders = {
-        'train':DataLoader(data['train'],batch_size=20,shuffle=True),
+        'train':DataLoader(data['train'],batch_size=20,shuffle=False),
         'test':DataLoader(data['test'],batch_size=20,shuffle=False)
         }
 
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
         feature_list = []
+        train= []
+        test = []
         with torch.no_grad():
             for split in ['train','test']:           
                 for i, (inputs,labels) in enumerate(dataloaders[split]):
+                    
                     inputs = inputs.to(device)
                     labels = labels.to(device)
                     # x_feature_batchs= model(inputs)
                     x_feature_batchs= model(inputs)
-
                    
                     if i:
                         features = np.concatenate([features,x_feature_batchs],axis=0)
@@ -206,27 +102,34 @@ class Transfer_Forest():
         return feature_list[0],feature_list[1]
 
     def isolation_forest(self):
-        x_train,x_test = self.extract_feature()
-
+        x_train,x_test = self.extract_feature(self.model_name)
+       
         x_train = x_train.squeeze()
         x_test = x_test.squeeze()
+        print("##################x_train###############")
+        print(x_train.shape)
+        print(x_test.shape)
+        # print(x_train)
+        # print(x_test)
+        
         model2=IsolationForest(contamination='auto',behaviour='new')
         print("training...")
         model2.fit(x_train)
         print("predicting...")
-        y_pred_train = model2.predict(x_train)
+        # y_pred_train = model2.predict(x_train)
         y_pred_test = model2.predict(x_test)
         scores = -model2.decision_function(x_test)
-        scorestrain = -model2.decision_function(x_train)
+        # scorestrain = -model2.decision_function(x_train)
         return scores,y_pred_test
 
     def evaluation(self):
         a = 0
         scores, y_pred_test = self.isolation_forest()
-        print("##########scores###########")
-        print(scores)
+        # print("##########scores###########")
+        # print(scores)
         self.testy = np.load("test_y.npy")
-        p
+        # print("##############testy##############")
+        # print(self.testy)
         auroc = do_roc(scores=scores, true_labels=self.testy, file_name='roc', directory='data', plot=False)
         print('AUROC:', auroc)
         auprc = do_prc(scores, self.testy, file_name='auprc',
@@ -263,13 +166,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0,
                         help='random_seed')
+    parser.add_argument('--model', default='model_notrain.pkl',help='model name')
     args = parser.parse_args()
     seed= args.seed
+    model_name =args.model
     np.random.seed(seed)
-    torch.manual_seed(seed)
     # if you are suing GPU
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-    model = Transfer_Forest(seed)
+   
+    model = Transfer_Forest(seed,model_name)
     model.evaluation()

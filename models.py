@@ -88,19 +88,19 @@ class BasicBlock(nn.Module):
         return y
 
 class ResNet(nn.Module):
-    def __init__(self, block, nblocks, num_classes=[10]):
+    def __init__(self, block, nblocks, num_classes=[5]):
         super(ResNet, self).__init__()
-        nb_tasks = len(num_classes)
+        nb_tasks = 1
         blocks = [block, block, block]
-        factor = config_task.factor
+        factor = 1.
         self.in_planes = int(32*factor)
         self.pre_layers_conv = conv_task(3,int(32*factor), 1, nb_tasks) 
         self.layer1 = self._make_layer(blocks[0], int(64*factor), nblocks[0], stride=2, nb_tasks=nb_tasks)
         self.layer2 = self._make_layer(blocks[1], int(128*factor), nblocks[1], stride=2, nb_tasks=nb_tasks)
         self.layer3 = self._make_layer(blocks[2], int(256*factor), nblocks[2], stride=2, nb_tasks=nb_tasks)
-        self.end_bns = nn.ModuleList([nn.Sequential(nn.BatchNorm2d(int(256*factor)),nn.ReLU(True)) for i in range(nb_tasks)])
+        self.end_bns = nn.ModuleList([nn.Sequential(nn.BatchNorm2d(int(256)),nn.ReLU(True))])
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.linears = nn.ModuleList([nn.Linear(int(256*factor), num_classes[i]) for i in range(nb_tasks)])         
+        self.linears = nn.ModuleList([nn.Linear(int(256), 2)])         
         
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -111,12 +111,13 @@ class ResNet(nn.Module):
                 m.bias.data.zero_()
     def forward(self, x):
         x = self.pre_layers_conv(x)
-        task = config_task.task
+        task = 0
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.end_bns[task](x)
         x = self.avgpool(x)
+        # print(x)
         x = x.view(x.size(0), -1)
         x = self.linears[task](x)
         return x
@@ -134,5 +135,5 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     
-def resnet26(num_classes=[10], blocks=BasicBlock):
+def resnet26(num_classes=[5], blocks=BasicBlock):
     return  ResNet(blocks, [4,4,4],num_classes)
