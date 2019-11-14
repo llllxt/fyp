@@ -35,13 +35,13 @@ class FeatureExtractor(nn.Module):
             if name == self.extracted_layers:
                 return x
 class Transfer_Forest():
-    def __init__(self,seed,model_name):
+    def __init__(self,seed,model_name,gpu):
         self.seed = seed
-        
         self.dataset="dr_kaggle"
         self.anomaly_type = "novelty"
         self.a = 0
         self.model_name = model_name
+        self.gpu = gpu
 
     def recursion_change_bn(self,module):
         if isinstance(module, torch.nn.BatchNorm2d):
@@ -50,34 +50,24 @@ class Transfer_Forest():
             for name, module1 in module._modules.items():
                 module1 = self.recursion_change_bn(module1)
 
-    def extract_feature(self,model_name):
-        # model_dict = model.state_dict()
-        # pretrained_dict =checkpoint
-        # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-        # model_dict.update(pretrained_dict)
-        # model.load_state_dict(pretrained_dict)
-
-        
+    def extract_feature(self,model_namem):
         model = resnet26()       
         checkpoint = torch.load(model_name)
         model.load_state_dict(checkpoint)
-        #     print(param)
-
         model.cuda()
         model.eval()
         #load data
-
         data = {
         'train':CustomDataset(split="train",seed=42,step='isolation'),
         'test':CustomDataset(split="test",seed=42,step='isolation')
 
         }
         dataloaders = {
-        'train':DataLoader(data['train'],batch_size=20,shuffle=False),
+        'train':DataLoader(data['train'],batch_size=20,shuffle=True),
         'test':DataLoader(data['test'],batch_size=20,shuffle=False)
         }
 
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda:"+self.gpu if torch.cuda.is_available() else "cpu")
         
         feature_list = []
         train= []
@@ -166,12 +156,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=0,
                         help='random_seed')
-    parser.add_argument('--model', default='model_notrain.pkl',help='model name')
+    parser.add_argument('--model', default='model_notrain.pkl',required=True,help='model name')
+    parser.add_argument('--gpu', default='0',required=True,help='gpu index')
     args = parser.parse_args()
     seed= args.seed
     model_name =args.model
-    np.random.seed(seed)
-    # if you are suing GPU
-   
-    model = Transfer_Forest(seed,model_name)
+    gpu = args.gpu
+    model = Transfer_Forest(seed,model_name,gpu)
     model.evaluation()

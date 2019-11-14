@@ -11,10 +11,10 @@ from torchvision import transforms, utils
 import os
 import glob
 
-normalize= transforms.Normalize(
-    mean=[0.485, 0.456, 0.406],
-    std=[0.229, 0.224, 0.225]
-    )
+# normalize= transforms.Normalize(
+#     mean=[0.485, 0.456, 0.406],
+#     std=[0.229, 0.224, 0.225]
+#     )
 preprocess = transforms.Compose([
     transforms.ToTensor(),
     
@@ -54,11 +54,6 @@ def get_dataset(split,seed,step):
         img_name = full_name.split('.')[0]
         if labels[labels['image']==img_name]['level'].values[0] == 1:
             continue
-            # if step != 'finetune':
-            #     continue
-            # else:
-            #     lbls.append(1)
-            #     imgs.append(name)
         elif labels[labels['image']==img_name]['level'].values[0] == 0:
             count += 1
             if(step=="finetune" and split=="train" and count > 900):
@@ -69,11 +64,6 @@ def get_dataset(split,seed,step):
 
         elif labels[labels['image']==img_name]['level'].values[0] == 2:
             continue
-            # if step != 'finetune':
-            #     continue
-            # else:
-            #     lbls.append(1)
-            #     imgs.append(name)
         elif labels[labels['image']==img_name]['level'].values[0] == 3:
             if step != 'finetune':
                 continue
@@ -81,15 +71,13 @@ def get_dataset(split,seed,step):
                 lbls.append(1)
                 imgs.append(name)
         elif labels[labels['image']==img_name]['level'].values[0] == 4:
-            if step == 'isolation':
-                lbls.append(1)
-            else:
-                lbls.append(1)
+            lbls.append(1)
             imgs.append(name)
         else:
             raise Exception("PROBLEM"+name)
             continue
         numpy_labels = np.array(lbls)
+        np.save(split+"_x.npy",imgs)
         np.save(split+"_y.npy",lbls)
     print(set(lbls))
     return imgs,lbls

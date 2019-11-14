@@ -3,6 +3,7 @@ import glob
 import pickle
 import random
 
+###############sample train data for finetune################
 split = 'train'
 root_dir = "/home/students/student3_15/00_astar/00_baseline/00_drkaggle"
 print("sampling data...")
@@ -15,6 +16,7 @@ with open('finetune.txt', 'w') as f:
     for item in files_train:
         print >> f, item
 
+#############sample train data for isolation##############
 files_test = random.sample(files_name,7000)
 file_iso = []
 for file in files_test:
@@ -25,6 +27,7 @@ with open('isolation.txt', 'w') as f:
     for item in files_train:
         print >> f, item
 
+############sample test data for isolation
 split='test'
 root_dir = "/home/students/student3_15/00_astar/00_baseline/00_drkaggle"
 print("sampling data...")
