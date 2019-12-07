@@ -88,7 +88,7 @@ class BasicBlock(nn.Module):
         return y
 
 class ResNet(nn.Module):
-    def __init__(self, block, nblocks, num_classes=[5]):
+    def __init__(self, block, nblocks, num_classes):
         super(ResNet, self).__init__()
         nb_tasks = 1
         blocks = [block, block, block]
@@ -100,7 +100,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(blocks[2], int(256*factor), nblocks[2], stride=2, nb_tasks=nb_tasks)
         self.end_bns = nn.ModuleList([nn.Sequential(nn.BatchNorm2d(int(256)),nn.ReLU(True))])
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.linears = nn.ModuleList([nn.Linear(int(256), 2)])         
+        self.linears = nn.ModuleList([nn.Linear(int(256), num_classes)])         
         
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -135,5 +135,5 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     
-def resnet26(num_classes=[5], blocks=BasicBlock):
+def resnet26(num_classes, blocks=BasicBlock):
     return  ResNet(blocks, [4,4,4],num_classes)

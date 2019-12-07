@@ -94,10 +94,10 @@ def train_model(model,optimizer,dataloaders,device,save_name,num_epochs=25):
     return model
 def test_model(model,dataloaders,gpu):
     model.eval()
-    model.cuda()
+    
    
     device = torch.device("cuda:"+gpu if torch.cuda.is_available() else "cpu")
-
+    model.to(device)
     testy=[]
     y_pred=[]
     for inputs, labels in dataloaders['test']:
@@ -131,71 +131,67 @@ def test_model(model,dataloaders,gpu):
 
 def set_parameter_requires_grad(model,feature_extracting):
         for name,param in model.named_parameters():
-            # print("########param########")
-            # print(name,param)
-            # if('layer3' in name or 'linears' in name or 'end_bns' in name):
-            #     print('True')
-            #     param.requires_grad = True
-            # else:
-            #     print('False')
-            #     param.requires_grad = False
-            param.requires_grad = True
+            if( 'layer2' in name or'layer3' in name or 'linears' in name or 'end_bns' in name):              
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+           
 
 def initialize_model(model_name, num_classes,feature_extract, use_pretrained = True):
     model_ft = None
     input_size = 0
-    net = resnet26()
-    # if model_name == "resnet26":
-    #     checkpoint = torch.load("resnet26_pretrained.t7")
-    #     net_old = checkpoint['net']
+    net = resnet26(num_classes=num_classes)
+    if model_name == "resnet26":
+        checkpoint = torch.load("resnet26_pretrained.t7")
+        net_old = checkpoint['net']
 
-    #     store_data = []
-    #     t = 0
-    #     for name, m in net_old.named_modules():
-    #         if isinstance(m, nn.Conv2d):
-    #             store_data.append(m.weight.data)
-    #             t += 1
+        store_data = []
+        t = 0
+        for name, m in net_old.named_modules():
+            if isinstance(m, nn.Conv2d):
+                store_data.append(m.weight.data)
+                t += 1
 
-    #     element = 0
-    #     for name, m in net.named_modules():
-    #         if isinstance(m, nn.Conv2d) and 'parallel_blocks' not in name:
-    #             m.weight.data = torch.nn.Parameter(store_data[element].clone())
-    #             element += 1
+        element = 0
+        for name, m in net.named_modules():
+            if isinstance(m, nn.Conv2d) and 'parallel_blocks' not in name:
+                m.weight.data = torch.nn.Parameter(store_data[element].clone())
+                element += 1
 
-    #     element = 1
-    #     for name, m in net.named_modules():
-    #         if isinstance(m, nn.Conv2d) and 'parallel_blocks' in name:
-    #             m.weight.data = torch.nn.Parameter(store_data[element].clone())
-    #             element += 1
+        element = 1
+        for name, m in net.named_modules():
+            if isinstance(m, nn.Conv2d) and 'parallel_blocks' in name:
+                m.weight.data = torch.nn.Parameter(store_data[element].clone())
+                element += 1
 
-    #     store_data = []
-    #     store_data_bias = []
-    #     store_data_rm = []
-    #     store_data_rv = []
-    #     for name, m in net_old.named_modules():
-    #         if isinstance(m, nn.BatchNorm2d):
-    #             store_data.append(m.weight.data)
-    #             store_data_bias.append(m.bias.data)
-    #             store_data_rm.append(m.running_mean)
-    #             store_data_rv.append(m.running_var)
+        store_data = []
+        store_data_bias = []
+        store_data_rm = []
+        store_data_rv = []
+        for name, m in net_old.named_modules():
+            if isinstance(m, nn.BatchNorm2d):
+                store_data.append(m.weight.data)
+                store_data_bias.append(m.bias.data)
+                store_data_rm.append(m.running_mean)
+                store_data_rv.append(m.running_var)
 
-    #     element = 0
-    #     for name, m in net.named_modules():
-    #         if isinstance(m, nn.BatchNorm2d) and 'parallel_block' not in name:
-    #                 m.weight.data = torch.nn.Parameter(store_data[element].clone())
-    #                 m.bias.data = torch.nn.Parameter(store_data_bias[element].clone())
-    #                 m.running_var = store_data_rv[element].clone()
-    #                 m.running_mean = store_data_rm[element].clone()
-    #                 element += 1
+        element = 0
+        for name, m in net.named_modules():
+            if isinstance(m, nn.BatchNorm2d) and 'parallel_block' not in name:
+                    m.weight.data = torch.nn.Parameter(store_data[element].clone())
+                    m.bias.data = torch.nn.Parameter(store_data_bias[element].clone())
+                    m.running_var = store_data_rv[element].clone()
+                    m.running_mean = store_data_rm[element].clone()
+                    element += 1
 
-    #     element = 1
-    #     for name, m in net.named_modules():
-    #         if isinstance(m, nn.BatchNorm2d) and 'parallel_block' in name:
-    #                 m.weight.data = torch.nn.Parameter(store_data[element].clone())
-    #                 m.bias.data = torch.nn.Parameter(store_data_bias[element].clone())
-    #                 m.running_var = store_data_rv[element].clone()
-    #                 m.running_mean = store_data_rm[element].clone()
-    #                 element += 1
+        element = 1
+        for name, m in net.named_modules():
+            if isinstance(m, nn.BatchNorm2d) and 'parallel_block' in name:
+                    m.weight.data = torch.nn.Parameter(store_data[element].clone())
+                    m.bias.data = torch.nn.Parameter(store_data_bias[element].clone())
+                    m.running_var = store_data_rv[element].clone()
+                    m.running_mean = store_data_rm[element].clone()
+                    element += 1
         
        
 
@@ -246,7 +242,7 @@ if __name__ == "__main__":
     parser.add_argument('--gpu', default='0',required=True,help='gpu index')
     args = parser.parse_args()
     model_name = "resnet26"
-    num_classes = 4
+    num_classes = 2
     feature_extract = True
     num_epochs = 30
     batchsize =20

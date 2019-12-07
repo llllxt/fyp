@@ -8,11 +8,12 @@ import datetime
 import csv
 import torch.nn as nn
 
+import agent_net
 import argparse
 import random
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score,average_precision_score,precision_recall_fscore_support
 from torchvision import transforms,models
-from models import resnet26
+from spottune_models import *
 from data import CustomDataset
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, average_precision_score
@@ -35,13 +36,14 @@ class FeatureExtractor(nn.Module):
             if name == self.extracted_layers:
                 return x
 class Transfer_Forest():
-    def __init__(self,seed,model_name,gpu):
+    def __init__(self,seed,model_name,num_classes,gpu):
         self.seed = seed
         self.dataset="dr_kaggle"
         self.anomaly_type = "novelty"
         self.a = 0
         self.model_name = model_name
         self.gpu = gpu
+        self.num_classes = num_classes
 
     def recursion_change_bn(self,module):
         if isinstance(module, torch.nn.BatchNorm2d):
@@ -50,12 +52,13 @@ class Transfer_Forest():
             for name, module1 in module._modules.items():
                 module1 = self.recursion_change_bn(module1)
 
-    def extract_feature(self,model_namem):
-        model = resnet26()       
-        checkpoint = torch.load(model_name)
-        model.load_state_dict(checkpoint)
-        model.cuda()
-        model.eval()
+    def extract_feature(self,model_name,num_classes):
+        model = resnet26(num_classes)       
+        # checkpoint = torch.load(model_name)
+        # model.load_state_dict(checkpoint)
+        path = '/home/students/student3_15/00_astar/00_baseline/spottune/cv/drkaggle/drkaggle.pkl'
+        model.load_state_dict(torch.load(path))
+        
         #load data
         data = {
         'train':CustomDataset(split="train",seed=42,step='isolation'),
@@ -68,8 +71,10 @@ class Transfer_Forest():
         }
 
         device = torch.device("cuda:"+self.gpu if torch.cuda.is_available() else "cpu")
-        
+        model.to(device)
+        model.eval()
         feature_list = []
+        label_list = []
         train= []
         test = []
         with torch.no_grad():
@@ -83,16 +88,21 @@ class Transfer_Forest():
                    
                     if i:
                         features = np.concatenate([features,x_feature_batchs],axis=0)
+                        label = np.concatenate([label,labels])
                     else:
                         features = x_feature_batchs
+                        label = labels
                 feature_list.append(features)
+                label_list.append(label)
 
         np.save("feature1.npy",feature_list[0])
         np.save("feature2.npy",feature_list[1])
+        np.save("label1.npy",label_list[0])
+        np.save('label2.npy',label_list[1])
         return feature_list[0],feature_list[1]
 
     def isolation_forest(self):
-        x_train,x_test = self.extract_feature(self.model_name)
+        x_train,x_test = self.extract_feature(self.model_name,self.num_classes)
        
         x_train = x_train.squeeze()
         x_test = x_test.squeeze()
@@ -162,5 +172,6 @@ if __name__ == '__main__':
     seed= args.seed
     model_name =args.model
     gpu = args.gpu
-    model = Transfer_Forest(seed,model_name,gpu)
+    num_classes = 2
+    model = Transfer_Forest(seed,model_name,num_classes,gpu)
     model.evaluation()
